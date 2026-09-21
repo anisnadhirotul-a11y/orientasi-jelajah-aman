@@ -15,9 +15,9 @@ export interface WeatherCardProps {
   tingkatAQI: TingkatAQI;
 }
 
-export interface LaporanCuaca {
+export interface LaporanUdara {
   kota: string;
   indeksAQI: number;
-  tingkatAQI: TingkatAQI;
+  tingkat: TingkatAQI;
   diperbaruiPada: string;
 }
