@@ -1,5 +1,5 @@
 // app/(tabs)/pengaturan.tsx
-import { Text, View } from "react-native";
+import { View, Text } from "react-native";
 
 export default function TabPengaturan() {
   return (
