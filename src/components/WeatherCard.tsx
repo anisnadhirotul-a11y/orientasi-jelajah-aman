@@ -1,5 +1,5 @@
 // components/WeatherCard.tsx
-import { Text, View } from "react-native";
+import { View, Text } from "react-native";
 import { WeatherCardProps } from "../types/cuaca";
 
 // 1. Tambahkan baris import ini untuk memanggil variabel dari styles.ts
