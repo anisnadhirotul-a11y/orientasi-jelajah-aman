@@ -1,5 +1,5 @@
 import { View, Text } from 'react-native';
-import { typeScale, spacing } from '../constants/styles';
+import { typeScale, spacing } from '../../constants/styles';
 
 export default function TabTentang() {
   return (
@@ -7,7 +7,7 @@ export default function TabTentang() {
         <Text
         accessible
         accessibilityLabel="Judul halaman Tentang aplikasi Jelajah Aman"
-        style: {{ fonSize: typeScale.judul, fontWeight: 'bold' }}
+        style= {{ fontSize: typeScale.judul, fontWeight: 'bold' }}
     >
         Jelajah Aman
     </Text>

@@ -1,23 +1,28 @@
-// components/SearchBox.tsx
+// src/components/SearchBox.tsx
 import { useState } from "react";
-import { Button, TextInput, View } from "react-native";
+import { TextInput, View } from "react-native";
 
 interface SearchBoxProps {
-  onCari: (kota: string) => void;
+  onCari: (teks: string) => void;
 }
 
 export default function SearchBox({ onCari }: SearchBoxProps) {
   const [teks, setTeks] = useState("");
 
+  function handleChange(nilaiBaru: string) {
+    setTeks(nilaiBaru);
+    onCari(nilaiBaru); // kirim setiap perubahan, debounce diatur di pemanggilnya
+  }
+
   return (
-    <View style={{ flexDirection: "row", gap: 8 }}>
+    <View>
       <TextInput
-        placeholder="Nama kota"
+        placeholder="Cari nama kota..."
         value={teks}
-        onChangeText={setTeks}
-        style={{ flex: 1, borderWidth: 1, padding: 8 }}
+        onChangeText={handleChange}
+        accessibilityLabel="Cari cuaca untuk kota yang dimasukkan"
+        style={{ borderWidth: 1, padding: 8, borderRadius: 8 }}
       />
-      <Button title="Cari" onPress={() => onCari(teks)} accessibilityLabel="Cari cuaca untuk kota yang dimasukkan"  />
     </View>
   );
 }
