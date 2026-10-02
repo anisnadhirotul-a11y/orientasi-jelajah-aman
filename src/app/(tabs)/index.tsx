@@ -1,4 +1,3 @@
-// src/app/(tabs)/index.tsx
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Button, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -15,7 +14,8 @@ export default function HalamanUtama() {
   const [sedangMemuat, setSedangMemuat] = useState(false);
   const [pesanError, setPesanError] = useState<string | null>(null);
 
-  const teksTertunda = useDebounce(teksCari, 500);
+  // Mengubah debounce menjadi 800 ms
+  const teksTertunda = useDebounce(teksCari, 800);
 
   useEffect(() => {
     if (teksTertunda.trim().length === 0) {
@@ -47,15 +47,24 @@ export default function HalamanUtama() {
 
       {pesanError && (
         <View>
-          <Text>{pesanError}</Text>
+          <Text accessibilityLabel="Pesan kesalahan">{pesanError}</Text>
           <Button title="Coba Lagi" onPress={() => ambilData(teksTertunda)} />
         </View>
       )}
 
       {!sedangMemuat &&
         !pesanError &&
-        teksTertunda.length > 0 &&
-        hasil.length === 0 && <Text>Kota tidak ditemukan</Text>}
+        teksTertunda.trim().length > 0 &&
+        hasil.length === 0 && (
+          <Text accessibilityLabel="Kota tidak ditemukan">
+            Kota tidak ditemukan
+          </Text>
+        )}
+
+      {/* Indikator jumlah hasil pencarian */}
+      {!sedangMemuat && !pesanError && teksTertunda.trim().length > 0 && (
+        <Text>Ditemukan {hasil.length} kota</Text>
+      )}
 
       {hasil.map((kota) => (
         <WeatherCard
