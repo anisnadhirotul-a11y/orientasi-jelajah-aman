@@ -24,6 +24,7 @@ import { konversiTingkatAQI } from "../../services/weatherAdapter";
 import { ambilCuaca } from "../../services/weatherService";
 import { HasilGeocoding } from "../../types/geocoding";
 import { DataCuacaLengkap, DataKualitasUdara } from "../../types/weather";
+import { router } from "expo-router";
 
 export default function HalamanUtama() {
   const [teksCari, setTeksCari] = useState("");
@@ -126,24 +127,29 @@ export default function HalamanUtama() {
         </View>
       )}
 
-      {cuaca && kualitasUdara && kotaTerpilih && !sedangMemuat && (
-        <View>
-          <WeatherCard
-            kota={kotaTerpilih.name}
-            suhu={cuaca.saatIni.suhu}
-            tingkatAQI={konversiTingkatAQI(kualitasUdara.indeksAQI)}
-            indeksAQI={kualitasUdara.indeksAQI}
-          />
-
-          {/* Menampilkan Suhu Maksimal & Minimal Harian */}
-          {cuaca.harian && (
-            <Text style={{ fontSize: 14, color: "#555", marginTop: 8 }}>
-              Suhu Hari Ini: Min {cuaca.harian.suhuMinimal[0]}°C / Maks{" "}
-              {cuaca.harian.suhuMaksimal[0]}°C
-            </Text>
-          )}
-        </View>
-      )}
+      {cuaca && kualitasUdara && kotaTerpilih && !sedangMemuat && ( 
+  <> 
+    <WeatherCard 
+      kota={kotaTerpilih.name} 
+      suhu={cuaca.saatIni.suhu} 
+      tingkatAQI={konversiTingkatAQI(kualitasUdara.indeksAQI)} 
+    /> 
+    <Button 
+      title="Tambahkan ke Favorit" 
+      onPress={() => 
+        router.push({ 
+          pathname: "/tambah-favorit", 
+          params: { 
+            id: String(kotaTerpilih.id), 
+            nama: kotaTerpilih.name, 
+            lat: String(kotaTerpilih.latitude), 
+            lon: String(kotaTerpilih.longitude), 
+          }, 
+        }) 
+      } 
+    /> 
+  </> 
+)} 
 
       {cuaca && (
         <Text style={{ fontSize: 12, color: "#888" }}>
