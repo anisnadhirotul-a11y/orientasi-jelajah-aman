@@ -76,6 +76,7 @@ export default function HalamanUtama() {
     }
   }
   async function gunakanLokasiSaatIni() {
+  try {
     const status = await mintaIzinLokasi();
 
     if (status === "denied") {
@@ -84,15 +85,18 @@ export default function HalamanUtama() {
       );
       return;
     }
+
     if (status === "unavailable") {
       setPesanLokasi(
-        "Layanan lokasi tidak aktif di perangkat ini. Silakan cari kota secara manual.",
+        "Layanan lokasi tidak aktif di perangkat ini. Silakan aktifkan GPS.",
       );
       return;
     }
 
     setPesanLokasi(null);
+
     const koordinat = await ambilKoordinatSaatIni();
+
     pilihKota({
       id: -1,
       name: "Lokasi Saat Ini",
@@ -100,7 +104,14 @@ export default function HalamanUtama() {
       longitude: koordinat.longitude,
       country: "",
     });
+  } catch (error) {
+    console.error("ERROR LOKASI:", error);
+
+    setPesanLokasi(
+      "Tidak dapat mengambil lokasi saat ini. Pastikan GPS aktif lalu coba lagi.",
+    );
   }
+}
 
   return (
     <SafeAreaView style={{ flex: 1, padding: 16, gap: 16 }}>
