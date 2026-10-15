@@ -33,13 +33,15 @@
           "imageWidth": 76
         }
       ],
-    [
-      "expo-location", 
-      {
-        "locationWhenInUsePermission": "Jelajah Aman menggunakan lokasi Anda untuk menampilkan cuaca di kota terdekat." 
-      }
-    ]
-    ],    
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Jelajah Aman menggunakan lokasi Anda untuk menampilkan cuaca di kota terdekat."
+        }
+      ],
+      "expo-image",
+      "expo-web-browser"
+    ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
