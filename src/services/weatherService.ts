@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { DataCuacaLengkap } from "../types/weather";
 
 const BASE_URL = "https://api.open-meteo.com/v1/forecast";
-const BATAS_WAKTU_MS = 3000;
+const BATAS_WAKTU_MS = 10000;
 const KUNCI_CACHE = "@jelajah_aman:cache_cuaca:";
 
 export async function ambilCuaca(
@@ -49,6 +49,8 @@ export async function ambilCuaca(
 
     return hasil;
   } catch (err) {
+    console.error("ERROR AMBIL CUACA:", err);
+
     const cache = await AsyncStorage.getItem(kunci);
 
     if (cache) {
