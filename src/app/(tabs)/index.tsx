@@ -1,54 +1,91 @@
-
-import { useState, useEffect, useRef } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  ScrollView,
   ActivityIndicator,
+  Alert,
   Button,
+  Platform,
+  ScrollView,
+  Text,
   TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
 
-import SearchBox from "../../components/SearchBox";
-import WeatherCard from "../../components/WeatherCard";
+import { useTheme } from "../../context/ThemeContext";
+
 import AtribusiCuaca from "../../components/AtribusiCuaca";
+import SearchBox from "../../components/SearchBox";
 import StatusData from "../../components/StatusData";
+import WeatherCard from "../../components/WeatherCard";
+import { labelKodeCuaca } from "../../constants/weatherCodes";
 import { useDebounce } from "../../hooks/use-debounce";
-import { cariKota } from "../../services/geocodingService";
+
+import {
+  bersihkanCacheLama,
+  daftarKotaTersimpan,
+  hapusCacheKota,
+} from "../../services/cacheRepository";
+
 import {
   ambilCuacaOfflineFirst,
   BATAS_CACHE_MS,
 } from "../../services/cuacaRepository";
+
+import { cariKota } from "../../services/geocodingService";
+
 import {
-  bersihkanCacheLama,
-  daftarKotaTersimpan,
-} from "../../services/cacheRepository";
-import {
-  mintaIzinLokasi,
   ambilKoordinatSaatIni,
+  mintaIzinLokasi,
 } from "../../services/locationService";
+
+import { simpanRiwayat } from "../../services/riwayatStorage";
 import { konversiTingkatAQI } from "../../services/weatherAdapter";
-import { labelKodeCuaca } from "../../constants/weatherCodes";
-import { HasilGeocoding } from "../../types/geocoding";
-import {
+
+import type {
   HasilCuacaOffline,
   RingkasanKotaTersimpan,
 } from "../../types/cache";
 
+import type { HasilGeocoding } from "../../types/geocoding";
+
 export default function HalamanUtama() {
+  // Mengambil warna dari tema aplikasi
+  const { colors } = useTheme();
+
+  // Menerima parameter dari halaman Riwayat
+  const { kotaId, kotaNama, kotaLat, kotaLon, kotaCountry, waktuBuka } =
+    useLocalSearchParams<{
+      kotaId?: string;
+      kotaNama?: string;
+      kotaLat?: string;
+      kotaLon?: string;
+      kotaCountry?: string;
+      waktuBuka?: string;
+    }>();
+
+  // State aplikasi
   const [teksCari, setTeksCari] = useState("");
+
   const [hasilPencarian, setHasilPencarian] = useState<HasilGeocoding[]>([]);
+
   const [kotaTerpilih, setKotaTerpilih] = useState<HasilGeocoding | null>(null);
+
   const [hasil, setHasil] = useState<HasilCuacaOffline | null>(null);
-  const [kotaTersimpan, setKotaTersimpan] = useState<RingkasanKotaTersimpan[]>([]);
+
+  const [kotaTersimpan, setKotaTersimpan] = useState<RingkasanKotaTersimpan[]>(
+    [],
+  );
+
   const [sedangMemuat, setSedangMemuat] = useState(false);
+
   const [pesanError, setPesanError] = useState<string | null>(null);
+
   const [pesanLokasi, setPesanLokasi] = useState<string | null>(null);
 
   const teksTertunda = useDebounce(teksCari, 500);
   const requestIdRef = useRef(0);
+  const waktuBukaTerakhirRef = useRef<string | null>(null);
 
   // Memuat daftar kota yang tersimpan
   async function muatKotaTersimpan() {
@@ -58,6 +95,53 @@ export default function HalamanUtama() {
     } catch (err) {
       console.error("ERROR CACHE KOTA:", err);
     }
+  }
+
+  // Menghapus cache kota yang dipilih
+  async function prosesHapusCache(kunci: string) {
+    try {
+      await hapusCacheKota(kunci);
+      await muatKotaTersimpan();
+    } catch (err) {
+      console.error("ERROR HAPUS CACHE:", err);
+
+      if (Platform.OS === "web") {
+        window.alert("Gagal menghapus cache kota.");
+      } else {
+        Alert.alert("Error", "Gagal menghapus cache kota.");
+      }
+    }
+  }
+
+  // Konfirmasi sebelum menghapus cache
+  function konfirmasiHapusCache(kunci: string, nama: string) {
+    if (Platform.OS === "web") {
+      const yakin = window.confirm(`Yakin ingin menghapus cache ${nama}?`);
+
+      if (yakin) {
+        void prosesHapusCache(kunci);
+      }
+
+      return;
+    }
+
+    Alert.alert(
+      "Konfirmasi Hapus Cache",
+      `Yakin ingin menghapus cache ${nama}?`,
+      [
+        {
+          text: "Batal",
+          style: "cancel",
+        },
+        {
+          text: "Hapus",
+          style: "destructive",
+          onPress: () => {
+            void prosesHapusCache(kunci);
+          },
+        },
+      ],
+    );
   }
 
   // Membersihkan cache lama saat aplikasi dibuka
@@ -80,11 +164,16 @@ export default function HalamanUtama() {
 
     cariKota(teksTertunda)
       .then((data) => {
-        if (aktif) setHasilPencarian(data);
+        if (aktif) {
+          setHasilPencarian(data);
+        }
       })
       .catch((err) => {
         console.error("ERROR CARI KOTA:", err);
-        if (aktif) setHasilPencarian([]);
+
+        if (aktif) {
+          setHasilPencarian([]);
+        }
       });
 
     return () => {
@@ -93,10 +182,7 @@ export default function HalamanUtama() {
   }, [teksTertunda]);
 
   // Mengambil data cuaca menggunakan offline-first
-  async function pilihKota(
-    kota: HasilGeocoding,
-    paksaPerbarui = false
-  ) {
+  async function pilihKota(kota: HasilGeocoding, paksaPerbarui = false) {
     setKotaTerpilih(kota);
 
     const idSaatIni = ++requestIdRef.current;
@@ -112,16 +198,29 @@ export default function HalamanUtama() {
           latitude: kota.latitude,
           longitude: kota.longitude,
         },
-        { paksaPerbarui }
+        { paksaPerbarui },
       );
 
-      if (idSaatIni !== requestIdRef.current) return;
+      if (idSaatIni !== requestIdRef.current) {
+        return;
+      }
 
       setHasil(data);
-      await muatKotaTersimpan();
 
+      // Menyimpan riwayat pencarian
+      if (!paksaPerbarui && kota.id !== -1) {
+        try {
+          await simpanRiwayat(kota);
+        } catch (err) {
+          console.error("ERROR SIMPAN RIWAYAT:", err);
+        }
+      }
+
+      await muatKotaTersimpan();
     } catch (err) {
-      if (idSaatIni !== requestIdRef.current) return;
+      if (idSaatIni !== requestIdRef.current) {
+        return;
+      }
 
       console.error("ERROR PILIH KOTA:", err);
 
@@ -130,9 +229,8 @@ export default function HalamanUtama() {
       setPesanError(
         err instanceof Error
           ? err.message
-          : "Terjadi kesalahan saat mengambil data cuaca."
+          : "Terjadi kesalahan saat mengambil data cuaca.",
       );
-
     } finally {
       if (idSaatIni === requestIdRef.current) {
         setSedangMemuat(false);
@@ -140,22 +238,57 @@ export default function HalamanUtama() {
     }
   }
 
+  // Membuka kota yang dipilih dari halaman Riwayat
+  useEffect(() => {
+    if (!kotaId || !kotaNama || !kotaLat || !kotaLon || !waktuBuka) {
+      return;
+    }
+
+    // Mencegah permintaan yang sama diproses berulang
+    if (waktuBukaTerakhirRef.current === waktuBuka) {
+      return;
+    }
+
+    const id = Number(kotaId);
+    const latitude = Number(kotaLat);
+    const longitude = Number(kotaLon);
+
+    if (
+      !Number.isFinite(id) ||
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude)
+    ) {
+      return;
+    }
+
+    waktuBukaTerakhirRef.current = waktuBuka;
+
+    const kota: HasilGeocoding = {
+      id,
+      name: kotaNama,
+      latitude,
+      longitude,
+      country: kotaCountry || "",
+    };
+
+    setTeksCari("");
+    setHasilPencarian([]);
+
+    void pilihKota(kota);
+  }, [kotaId, kotaNama, kotaLat, kotaLon, kotaCountry, waktuBuka]);
+
   // Menggunakan lokasi GPS saat ini
   async function gunakanLokasiSaatIni() {
     try {
       const status = await mintaIzinLokasi();
 
       if (status === "denied") {
-        setPesanLokasi(
-          "Izin lokasi ditolak. Silakan cari kota secara manual."
-        );
+        setPesanLokasi("Izin lokasi ditolak. Silakan cari kota secara manual.");
         return;
       }
 
       if (status === "unavailable") {
-        setPesanLokasi(
-          "Layanan lokasi tidak aktif di perangkat ini."
-        );
+        setPesanLokasi("Layanan lokasi tidak aktif di perangkat ini.");
         return;
       }
 
@@ -170,33 +303,47 @@ export default function HalamanUtama() {
         longitude: koordinat.longitude,
         country: "",
       });
-
     } catch (err) {
       console.error("ERROR LOKASI:", err);
-      setPesanLokasi(
-        "Gagal mengambil lokasi. Silakan coba lagi."
-      );
+
+      setPesanLokasi("Gagal mengambil lokasi. Silakan coba lagi.");
     }
   }
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView
+      style={{
+        flex: 1,
+        backgroundColor: colors.background,
+      }}
+    >
       <ScrollView
+        style={{
+          backgroundColor: colors.background,
+        }}
         contentContainerStyle={{
           padding: 16,
           gap: 16,
         }}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Pencarian kota */}
         <SearchBox onCari={setTeksCari} />
 
         <Button
           title="Gunakan Lokasi Saat Ini"
           onPress={gunakanLokasiSaatIni}
+          color={colors.primary}
         />
 
+        {/* Pesan lokasi */}
         {pesanLokasi && (
-          <Text accessibilityLabel={pesanLokasi}>
+          <Text
+            accessibilityLabel={pesanLokasi}
+            style={{
+              color: colors.text,
+            }}
+          >
             {pesanLokasi}
           </Text>
         )}
@@ -206,53 +353,119 @@ export default function HalamanUtama() {
           <TouchableOpacity
             key={kota.id}
             onPress={() => pilihKota(kota)}
+            style={{
+              backgroundColor: colors.card,
+              padding: 12,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
           >
-            <Text>{kota.name}</Text>
+            <Text
+              style={{
+                color: colors.primary,
+                fontSize: 16,
+              }}
+            >
+              {kota.name}
+            </Text>
           </TouchableOpacity>
         ))}
 
         {/* Daftar kota tersimpan */}
         {kotaTersimpan.length > 0 && (
-          <View style={{ gap: 6 }}>
-            <Text style={{ fontWeight: "bold" }}>
+          <View
+            style={{
+              gap: 8,
+            }}
+          >
+            <Text
+              style={{
+                fontWeight: "bold",
+                fontSize: 16,
+                color: colors.text,
+              }}
+            >
               Tersimpan di perangkat (bisa dibuka offline)
             </Text>
 
             {kotaTersimpan.map((k) => (
-              <TouchableOpacity
+              <View
                 key={k.kunci}
-                onPress={() =>
-                  pilihKota({
-                    id: k.id,
-                    name: k.nama,
-                    latitude: k.latitude,
-                    longitude: k.longitude,
-                    country: "",
-                  })
-                }
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: 10,
+                  gap: 10,
+                  backgroundColor: colors.card,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
               >
-                <Text>{k.nama}</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                  }}
+                  onPress={() =>
+                    pilihKota({
+                      id: k.id,
+                      name: k.nama,
+                      latitude: k.latitude,
+                      longitude: k.longitude,
+                      country: "",
+                    })
+                  }
+                >
+                  <Text
+                    style={{
+                      color: colors.primary,
+                      fontSize: 15,
+                    }}
+                  >
+                    {k.nama}
+                  </Text>
+                </TouchableOpacity>
+
+                <Button
+                  title="Hapus Cache"
+                  color="#DC2626"
+                  onPress={() => konfirmasiHapusCache(k.kunci, k.nama)}
+                />
+              </View>
             ))}
           </View>
         )}
 
         {/* Loading */}
-        {sedangMemuat && <ActivityIndicator />}
+        {sedangMemuat && (
+          <ActivityIndicator color={colors.primary} size="large" />
+        )}
 
         {/* Pesan error */}
         {pesanError && (
-          <View>
-            <Text accessibilityLabel={pesanError}>
+          <View
+            style={{
+              padding: 12,
+              backgroundColor: colors.card,
+              borderRadius: 8,
+              gap: 8,
+            }}
+          >
+            <Text
+              accessibilityLabel={pesanError}
+              style={{
+                color: colors.text,
+              }}
+            >
               {pesanError}
             </Text>
 
             <Button
               title="Coba Lagi"
-              onPress={() =>
-                kotaTerpilih &&
-                pilihKota(kotaTerpilih, true)
-              }
+              color={colors.primary}
+              onPress={() => kotaTerpilih && pilihKota(kotaTerpilih, true)}
             />
           </View>
         )}
@@ -268,34 +481,28 @@ export default function HalamanUtama() {
             <WeatherCard
               kota={kotaTerpilih.name}
               suhu={hasil.cuaca.saatIni.suhu}
-              tingkatAQI={konversiTingkatAQI(
-                hasil.kualitasUdara.indeksAQI
-              )}
+              tingkatAQI={konversiTingkatAQI(hasil.kualitasUdara.indeksAQI)}
             />
 
             <Text
               style={{
                 fontSize: 12,
-                color: "#888888",
+                color: colors.text,
               }}
             >
-              Kondisi:{" "}
-              {labelKodeCuaca(
-                hasil.cuaca.saatIni.kodeCuaca
-              )}{" "}
-              {"\u2022"} Angin{" "}
-              {hasil.cuaca.saatIni.kecepatanAngin} km/j
+              Kondisi: {labelKodeCuaca(hasil.cuaca.saatIni.kodeCuaca)}{" "}
+              {"\u2022"} Angin {hasil.cuaca.saatIni.kecepatanAngin} km/j
             </Text>
 
             <Button
               title="Perbarui Sekarang"
-              onPress={() =>
-                pilihKota(kotaTerpilih, true)
-              }
+              color={colors.primary}
+              onPress={() => pilihKota(kotaTerpilih, true)}
             />
 
             <Button
               title="Tambahkan ke Favorit"
+              color={colors.primary}
               onPress={() =>
                 router.push({
                   pathname: "/tambah-favorit",
@@ -311,6 +518,7 @@ export default function HalamanUtama() {
           </>
         )}
 
+        {/* Atribusi sumber data cuaca */}
         <AtribusiCuaca />
       </ScrollView>
     </SafeAreaView>
